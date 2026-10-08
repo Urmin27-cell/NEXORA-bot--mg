@@ -41,6 +41,9 @@ function ErrorComponent({ error, reset }: ErrorComponentProps) {
   console.error("Root error boundary caught error:", error);
   const router = useRouter();
 
+  const errorMessage =
+    error instanceof Error ? error.message : typeof error === "string" ? error : "";
+
   return (
     <div className="flex min-h-screen items-center justify-center bg-background p-4">
       <div className="max-w-md w-full text-center space-y-4">
@@ -53,6 +56,12 @@ function ErrorComponent({ error, reset }: ErrorComponentProps) {
         <p className="text-sm text-muted-foreground">
           Impossible de charger les données du serveur ou de la session.
         </p>
+        {errorMessage && (
+          <div className="p-3 bg-destructive/10 border border-destructive/20 text-destructive text-xs rounded-lg text-left overflow-auto max-h-32">
+            <p className="font-semibold mb-1">Détail de l'erreur :</p>
+            <p className="font-mono break-words">{errorMessage}</p>
+          </div>
+        )}
         <div className="pt-4 flex flex-wrap justify-center gap-3">
           <button
             onClick={() => {
@@ -144,13 +153,23 @@ function RootComponent() {
   const router = useRouter();
 
   useEffect(() => {
-    const { data } = supabase.auth.onAuthStateChange((event, session) => {
-      if (event !== "SIGNED_IN" && event !== "SIGNED_OUT" && event !== "USER_UPDATED") return;
-      router.invalidate();
-      if (session) queryClient.invalidateQueries();
-    });
+    let sub: any = null;
+    try {
+      const res = supabase.auth.onAuthStateChange((event, session) => {
+        if (event !== "SIGNED_IN" && event !== "SIGNED_OUT" && event !== "USER_UPDATED") return;
+        router.invalidate();
+        if (session) queryClient.invalidateQueries();
+      });
+      sub = res.data;
+    } catch (err) {
+      console.warn("Root auth subscription notice:", err);
+    }
 
-    return () => data.subscription.unsubscribe();
+    return () => {
+      try {
+        sub?.subscription?.unsubscribe?.();
+      } catch {}
+    };
   }, [queryClient, router]);
 
   return (

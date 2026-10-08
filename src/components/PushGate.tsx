@@ -144,7 +144,11 @@ export function PushGate() {
                   Ouvrez l'application dans un onglet séparé pour autoriser les notifications.
                 </p>
                 <Button asChild className="w-full">
-                  <a href={window.location.href} target="_blank" rel="noreferrer">
+                  <a
+                    href={typeof window !== "undefined" ? window.location.href : "#"}
+                    target="_blank"
+                    rel="noreferrer"
+                  >
                     <ExternalLink className="h-4 w-4 mr-2" />
                     Ouvrir dans un onglet
                   </a>

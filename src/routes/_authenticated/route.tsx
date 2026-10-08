@@ -2,6 +2,7 @@ import {
   createFileRoute,
   Outlet,
   redirect,
+  isRedirect,
   Link,
   useNavigate,
   useRouterState,
@@ -45,7 +46,14 @@ export const Route = createFileRoute("/_authenticated")({
       }
       return { user: data.user };
     } catch (e: any) {
-      if (e && typeof e === "object" && ("to" in e || "href" in e || "statusCode" in e)) {
+      if (isRedirect(e)) {
+        throw e;
+      }
+      if (
+        e &&
+        typeof e === "object" &&
+        ("to" in e || "href" in e || "status" in e || "statusCode" in e)
+      ) {
         throw e;
       }
       throw redirect({ to: "/auth" });

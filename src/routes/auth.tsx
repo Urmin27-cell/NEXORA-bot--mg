@@ -45,17 +45,27 @@ function AuthPage() {
 
     const checkExisting = async () => {
       if (isRecovery) return;
-      const { data } = await supabase.auth.getUser();
-      if (data.user) await navigate({ to: "/dashboard", replace: true });
+      try {
+        const { data } = await supabase.auth.getUser();
+        if (data?.user) await navigate({ to: "/dashboard", replace: true });
+      } catch (err) {
+        console.warn("Auth check error:", err);
+      }
     };
     checkExisting();
 
-    const { data: sub } = supabase.auth.onAuthStateChange((event, session) => {
-      if (event === "PASSWORD_RECOVERY") setRecovery(true);
-      if (event === "SIGNED_IN" && session && !isRecovery) {
-        router.invalidate().then(() => navigate({ to: "/dashboard", replace: true }));
-      }
-    });
+    let sub: any = null;
+    try {
+      const res = supabase.auth.onAuthStateChange((event, session) => {
+        if (event === "PASSWORD_RECOVERY") setRecovery(true);
+        if (event === "SIGNED_IN" && session && !isRecovery) {
+          router.invalidate().then(() => navigate({ to: "/dashboard", replace: true }));
+        }
+      });
+      sub = res.data;
+    } catch (err) {
+      console.warn("Auth state change error:", err);
+    }
 
     const handleMessage = (event: MessageEvent) => {
       if (event.data?.type === "SUPABASE_OAUTH_SUCCESS") {
@@ -68,9 +78,11 @@ function AuthPage() {
 
     return () => {
       window.removeEventListener("message", handleMessage);
-      sub.subscription.unsubscribe();
+      try {
+        sub?.subscription?.unsubscribe?.();
+      } catch {}
     };
-  }, [navigate]);
+  }, [navigate, router]);
 
   const handleForgot = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -177,6 +189,11 @@ function AuthPage() {
     }
   };
 
+  const isSupabaseConfigured = Boolean(
+    import.meta.env["VITE_SUPABASE_URL"] ||
+    (typeof process !== "undefined" && process.env?.["SUPABASE_URL"]),
+  );
+
   return (
     <div className="min-h-screen flex items-center justify-center p-4">
       <div className="w-full max-w-md">
@@ -191,6 +208,20 @@ function AuthPage() {
         </div>
 
         <Card className="glass p-6">
+          {!isSupabaseConfigured && (
+            <div className="mb-4 rounded-lg border border-amber-500/30 bg-amber-500/10 p-3 text-xs text-amber-200">
+              <p className="font-semibold mb-1">Configuration Supabase requise</p>
+              <p>
+                Pour vous connecter ou créer un compte sur votre déploiement Vercel, ajoutez vos
+                variables d'environnement Supabase dans les paramètres de votre projet Vercel :
+              </p>
+              <ul className="mt-1 list-disc list-inside font-mono text-[11px] text-amber-300">
+                <li>VITE_SUPABASE_URL</li>
+                <li>VITE_SUPABASE_PUBLISHABLE_KEY</li>
+                <li>SUPABASE_SERVICE_ROLE_KEY</li>
+              </ul>
+            </div>
+          )}
           {recovery ? (
             <form onSubmit={handleUpdatePassword} className="space-y-4">
               <div>

@@ -27,6 +27,15 @@ export async function runBackgroundWorkerTick(): Promise<{
     return { skipped: true };
   }
 
+  const hasSupabaseAdmin = Boolean(
+    (process.env["SUPABASE_URL"] || process.env["VITE_SUPABASE_URL"]) &&
+    process.env["SUPABASE_SERVICE_ROLE_KEY"],
+  );
+
+  if (!hasSupabaseAdmin) {
+    return { skipped: true };
+  }
+
   const { data: claimed, error: claimError } = await (supabaseAdmin as any).rpc(
     "claim_background_job",
     { _job_name: "facebook-automation", _lease_seconds: 120 },
@@ -137,6 +146,18 @@ export function startBackgroundWorker(): void {
   if (isWorkerStarted) return;
   isWorkerStarted = true;
 
+  const hasSupabaseAdmin = Boolean(
+    (process.env["SUPABASE_URL"] || process.env["VITE_SUPABASE_URL"]) &&
+    process.env["SUPABASE_SERVICE_ROLE_KEY"],
+  );
+
+  if (!hasSupabaseAdmin) {
+    console.log(
+      "[background-worker] Supabase service role key not configured — background worker idle.",
+    );
+    return;
+  }
+
   console.log("[background-worker] Starting light scheduler loop (every 60s)...");
 
   // Run first tick shortly after boot (10s)
@@ -160,6 +181,11 @@ export function startBackgroundWorker(): void {
  */
 export function maybeTickOnRequest(waitUntil?: (p: Promise<unknown>) => void): void {
   if (isWorkerRunning) return;
+  const hasSupabaseAdmin = Boolean(
+    (process.env["SUPABASE_URL"] || process.env["VITE_SUPABASE_URL"]) &&
+    process.env["SUPABASE_SERVICE_ROLE_KEY"],
+  );
+  if (!hasSupabaseAdmin) return;
   if (Date.now() - lastRunTimestamp < TICK_INTERVAL_MS) return;
   const p = runBackgroundWorkerTick().catch((err) =>
     console.error("[background-worker] Request tick error:", err),
