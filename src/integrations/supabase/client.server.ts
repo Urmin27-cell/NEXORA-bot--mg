@@ -32,16 +32,33 @@ function createSupabaseFetch(supabaseKey: string): typeof fetch {
   };
 }
 
+function cleanEnv(val: string | undefined): string {
+  if (!val) return "";
+  return val
+    .trim()
+    .replace(/^["'`]|["'`]$/g, "")
+    .trim();
+}
+
+function cleanUrl(val: string | undefined): string {
+  const cleaned = cleanEnv(val);
+  if (!cleaned) return "";
+  return cleaned.replace(/\/+$/, "");
+}
+
 function createSupabaseAdminClient() {
-  const SUPABASE_URL =
+  const rawUrl =
     process.env["SUPABASE_URL"] ||
     process.env["VITE_SUPABASE_URL"] ||
     "https://placeholder-project.supabase.co";
-  const SUPABASE_SERVICE_ROLE_KEY =
+  const rawKey =
     process.env["SUPABASE_SERVICE_ROLE_KEY"] ||
     process.env["SUPABASE_PUBLISHABLE_KEY"] ||
     process.env["VITE_SUPABASE_PUBLISHABLE_KEY"] ||
     "dummy-service-role-key";
+
+  const SUPABASE_URL = cleanUrl(rawUrl) || "https://placeholder-project.supabase.co";
+  const SUPABASE_SERVICE_ROLE_KEY = cleanEnv(rawKey) || "dummy-service-role-key";
 
   if (!process.env["SUPABASE_URL"] || !process.env["SUPABASE_SERVICE_ROLE_KEY"]) {
     const missing = [

@@ -150,6 +150,19 @@ function AuthPage() {
       toast.error("Veuillez remplir votre e-mail et mot de passe");
       return;
     }
+
+    const currentKey =
+      import.meta.env["VITE_SUPABASE_PUBLISHABLE_KEY"] ||
+      (typeof process !== "undefined" && process.env?.["SUPABASE_PUBLISHABLE_KEY"]) ||
+      "";
+
+    if (!currentKey || currentKey === "dummy-publishable-key" || currentKey.length < 20) {
+      toast.error(
+        "Clé 'anon public' absente : ajoutez VITE_SUPABASE_PUBLISHABLE_KEY dans Vercel (Settings > Environment Variables) puis faites un Redeploy.",
+      );
+      return;
+    }
+
     setLoading(true);
     try {
       const normalizedEmail = email.toLowerCase().trim();
@@ -186,7 +199,7 @@ function AuthPage() {
       const msg = err?.message || "";
       if (msg.toLowerCase().includes("invalid api key")) {
         toast.error(
-          "Clé API Supabase invalide : vérifiez que vous avez bien copié la clé 'anon public' (et non le mot de passe) dans VITE_SUPABASE_PUBLISHABLE_KEY sur Vercel, puis faites un Redeploy.",
+          "Clé API Supabase invalide : Vérifiez que VITE_SUPABASE_PUBLISHABLE_KEY dans Vercel correspond bien à la clé 'anon public' (et non le mot de passe ni la service_role), puis faites un Redeploy.",
         );
       } else {
         toast.error(msg || "Erreur lors de la connexion");
@@ -196,10 +209,20 @@ function AuthPage() {
     }
   };
 
-  const isSupabaseConfigured = Boolean(
+  const hasConfiguredUrl = Boolean(
     import.meta.env["VITE_SUPABASE_URL"] ||
     (typeof process !== "undefined" && process.env?.["SUPABASE_URL"]),
   );
+  const hasConfiguredKey = Boolean(
+    (import.meta.env["VITE_SUPABASE_PUBLISHABLE_KEY"] &&
+      import.meta.env["VITE_SUPABASE_PUBLISHABLE_KEY"] !== "dummy-publishable-key" &&
+      import.meta.env["VITE_SUPABASE_PUBLISHABLE_KEY"].length > 20) ||
+    (typeof process !== "undefined" &&
+      process.env?.["SUPABASE_PUBLISHABLE_KEY"] &&
+      process.env?.["SUPABASE_PUBLISHABLE_KEY"] !== "dummy-publishable-key" &&
+      process.env?.["SUPABASE_PUBLISHABLE_KEY"].length > 20),
+  );
+  const isSupabaseConfigured = hasConfiguredUrl && hasConfiguredKey;
 
   return (
     <div className="min-h-screen flex items-center justify-center p-4">
