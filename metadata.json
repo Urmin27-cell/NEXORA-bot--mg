@@ -1,0 +1,5 @@
+{
+  "name": "Nexora IA MG",
+  "description": "Nexora IA Management & AI Automation Platform",
+  "capabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

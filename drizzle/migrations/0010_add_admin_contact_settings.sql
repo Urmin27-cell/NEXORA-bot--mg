@@ -1,0 +1,2 @@
+ALTER TABLE public.settings ADD COLUMN IF NOT EXISTS admin_contact text;
+COMMENT ON COLUMN public.settings.admin_contact IS 'Contact de secours donne par la Mini IA quand aucune reponse fiable n est trouvee.';

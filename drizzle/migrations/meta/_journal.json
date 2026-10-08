@@ -1,0 +1,111 @@
+{
+  "version": "7",
+  "dialect": "postgresql",
+  "entries": [
+    {
+      "idx": 0,
+      "version": "7",
+      "when": 1789917674587,
+      "tag": "0000_restore_background_worker_lock",
+      "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1789917702977,
+      "tag": "0001_restore_core_app_schema",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1789917723581,
+      "tag": "0002_restore_commerce_app_schema",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1789917743748,
+      "tag": "0003_restore_remaining_app_schema",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1789920664311,
+      "tag": "0004_create_prompt_files",
+      "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1790250831151,
+      "tag": "0005_noop_replay",
+      "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1790275539422,
+      "tag": "0006_ai_usage_log",
+      "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1790275577451,
+      "tag": "0007_storage_owner_policies",
+      "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1790276010807,
+      "tag": "0008_products_page_ids",
+      "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1790325027087,
+      "tag": "0009_mini_ia_knowledge",
+      "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1790398602590,
+      "tag": "0010_add_admin_contact_settings",
+      "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1790583982596,
+      "tag": "0011_create_notification_recipients",
+      "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "7",
+      "when": 1791001358546,
+      "tag": "0012_paid_prompt_files",
+      "breakpoints": true
+    },
+    {
+      "idx": 13,
+      "version": "7",
+      "when": 1791177316084,
+      "tag": "0013_openai_keys",
+      "breakpoints": true
+    },
+    {
+      "idx": 14,
+      "version": "7",
+      "when": 1791456854837,
+      "tag": "0014_mini_ia_fallback_toggle",
+      "breakpoints": true
+    }
+  ]
+}

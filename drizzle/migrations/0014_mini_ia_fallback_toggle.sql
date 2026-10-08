@@ -1,0 +1,1 @@
+ALTER TABLE public.settings ADD COLUMN IF NOT EXISTS mini_ia_fallback_enabled boolean NOT NULL DEFAULT true;

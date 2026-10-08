@@ -1,0 +1,460 @@
+import { createFileRoute } from "@tanstack/react-router";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useState } from "react";
+import { Card } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import { Switch } from "@/components/ui/switch";
+import { Checkbox } from "@/components/ui/checkbox";
+import { listFacebookPages } from "@/lib/dashboard.functions";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { supabase } from "@/integrations/supabase/client";
+import {
+  listProducts,
+  upsertProduct,
+  deleteProduct,
+  uploadProductImageServer,
+  deleteProductImage,
+} from "@/lib/products.functions";
+import { Plus, Trash2, Edit, Image as ImageIcon, ShoppingBag, X } from "lucide-react";
+import { toast } from "sonner";
+
+export const Route = createFileRoute("/_authenticated/produits")({
+  component: ProduitsPage,
+});
+
+const emptyForm = {
+  id: undefined as string | undefined,
+  name: "",
+  price: 0,
+  stock: 0,
+  description: "",
+  payment_flow: "admin_numbers" as "admin_numbers" | "client_contact",
+  is_active: true,
+  page_ids: [] as string[],
+};
+
+function ProduitsPage() {
+  const qc = useQueryClient();
+  const { data: items = [] } = useQuery({
+    queryKey: ["products"],
+    queryFn: async () => {
+      try {
+        return await listProducts();
+      } catch (e) {
+        console.warn("Products query error", e);
+        return [];
+      }
+    },
+  });
+  const { data: pages = [] } = useQuery({
+    queryKey: ["fb-pages"],
+    queryFn: async () => {
+      try {
+        return await listFacebookPages();
+      } catch (e) {
+        console.warn("Pages query error", e);
+        return [];
+      }
+    },
+  });
+  const pageName = (pid: string) =>
+    (pages as any[]).find((x) => x.page_id === pid)?.page_name ?? pid;
+  const [form, setForm] = useState(emptyForm);
+  const togglePage = (pid: string) =>
+    setForm((f) => ({
+      ...f,
+      page_ids: f.page_ids.includes(pid)
+        ? f.page_ids.filter((x) => x !== pid)
+        : [...f.page_ids, pid],
+    }));
+  const [open, setOpen] = useState(false);
+  const [gallery, setGallery] = useState<any | null>(null);
+
+  const openNew = () => {
+    setForm(emptyForm);
+    setOpen(true);
+  };
+  const openEdit = (p: any) => {
+    setForm({
+      id: p.id,
+      name: p.name,
+      price: Number(p.price),
+      stock: p.stock,
+      description: p.description ?? "",
+      payment_flow: p.payment_flow,
+      is_active: p.is_active,
+      page_ids: Array.isArray(p.page_ids) ? p.page_ids : [],
+    });
+    setOpen(true);
+  };
+
+  const save = async () => {
+    try {
+      await upsertProduct({
+        data: {
+          id: form.id,
+          name: form.name,
+          price: Number(form.price),
+          stock: Number(form.stock),
+          description: form.description || null,
+          payment_flow: form.payment_flow,
+          is_active: form.is_active,
+          page_ids: form.page_ids,
+        },
+      });
+      toast.success("Produit enregistré");
+      setOpen(false);
+      qc.invalidateQueries({ queryKey: ["products"] });
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Erreur");
+    }
+  };
+
+  const del = async (id: string) => {
+    if (!confirm("Supprimer ce produit ?")) return;
+    await deleteProduct({ data: { id } });
+    qc.invalidateQueries({ queryKey: ["products"] });
+  };
+
+  return (
+    <div className="space-y-6">
+      <div className="flex items-center justify-between flex-wrap gap-4">
+        <div>
+          <h1 className="text-3xl font-bold gradient-text flex items-center gap-2">
+            <ShoppingBag className="h-8 w-8" /> Produits
+          </h1>
+          <p className="text-muted-foreground mt-1">Gérez votre catalogue et vos stocks.</p>
+        </div>
+        <Button onClick={openNew}>
+          <Plus className="h-4 w-4 mr-2" />
+          Nouveau produit
+        </Button>
+      </div>
+
+      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+        {items.map((p: any) => (
+          <Card key={p.id} className="glass p-4 space-y-3">
+            <div className="aspect-square bg-muted rounded-lg overflow-hidden">
+              {p.product_images?.[0]?.url ? (
+                <img
+                  src={p.product_images[0].url}
+                  alt={p.name}
+                  className="w-full h-full object-cover"
+                />
+              ) : (
+                <div className="w-full h-full flex items-center justify-center text-muted-foreground">
+                  <ImageIcon className="h-10 w-10" />
+                </div>
+              )}
+            </div>
+            <div>
+              <div className="font-semibold">{p.name}</div>
+              <div className="text-sm text-primary font-bold">
+                {Number(p.price).toLocaleString()} Ar
+              </div>
+              <div className="text-xs text-muted-foreground">
+                Stock : {p.stock} — {p.product_images?.length ?? 0} image(s)
+              </div>
+              <div className="text-xs text-muted-foreground">
+                Pages :{" "}
+                {Array.isArray(p.page_ids) && p.page_ids.length
+                  ? p.page_ids.map(pageName).join(", ")
+                  : "Toutes les pages"}
+              </div>
+            </div>
+            <div className="flex gap-2">
+              <Button
+                size="sm"
+                variant="secondary"
+                className="flex-1"
+                onClick={() => setGallery(p)}
+              >
+                <ImageIcon className="h-4 w-4 mr-1" />
+                Galerie
+              </Button>
+              <Button size="icon" variant="ghost" onClick={() => openEdit(p)}>
+                <Edit className="h-4 w-4" />
+              </Button>
+              <Button size="icon" variant="ghost" onClick={() => del(p.id)}>
+                <Trash2 className="h-4 w-4 text-destructive" />
+              </Button>
+            </div>
+          </Card>
+        ))}
+        {items.length === 0 && (
+          <Card className="glass p-8 text-center text-muted-foreground col-span-full">
+            Aucun produit.
+          </Card>
+        )}
+      </div>
+
+      <Dialog open={open} onOpenChange={setOpen}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>{form.id ? "Modifier" : "Nouveau produit"}</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div>
+              <Label>Nom</Label>
+              <Input
+                value={form.name}
+                onChange={(e) => setForm({ ...form, name: e.target.value })}
+              />
+            </div>
+            <div>
+              <Label>Prix (Ar)</Label>
+              <Input
+                type="number"
+                value={form.price}
+                onChange={(e) => setForm({ ...form, price: Number(e.target.value) })}
+              />
+            </div>
+            <div>
+              <Label>Stock disponible</Label>
+              <Input
+                type="number"
+                value={form.stock}
+                onChange={(e) => setForm({ ...form, stock: Number(e.target.value) })}
+              />
+            </div>
+            <div>
+              <Label>Description</Label>
+              <Textarea
+                rows={3}
+                value={form.description}
+                onChange={(e) => setForm({ ...form, description: e.target.value })}
+              />
+            </div>
+            <div>
+              <Label>Méthode de paiement</Label>
+              <Select
+                value={form.payment_flow}
+                onValueChange={(v: any) => setForm({ ...form, payment_flow: v })}
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="admin_numbers">Envoyer numéros de paiement</SelectItem>
+                  <SelectItem value="client_contact">Demander contact client</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <div className="flex items-center justify-between">
+                <Label>Pages où ce produit est proposé</Label>
+                <div className="flex gap-2">
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    onClick={() =>
+                      setForm({ ...form, page_ids: (pages as any[]).map((x) => x.page_id) })
+                    }
+                  >
+                    Tout cocher
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setForm({ ...form, page_ids: [] })}
+                  >
+                    Tout décocher
+                  </Button>
+                </div>
+              </div>
+              <div className="mt-2 max-h-52 overflow-y-auto rounded-md border border-input divide-y divide-border">
+                {pages.length === 0 && (
+                  <p className="p-3 text-sm text-muted-foreground">Aucune page connectée.</p>
+                )}
+                {(pages as any[]).map((pg) => (
+                  <label
+                    key={pg.id}
+                    className="flex items-center gap-3 p-2 text-sm cursor-pointer hover:bg-accent"
+                  >
+                    <Checkbox
+                      checked={form.page_ids.includes(pg.page_id)}
+                      onCheckedChange={() => togglePage(pg.page_id)}
+                    />
+                    <span>{pg.page_name}</span>
+                  </label>
+                ))}
+              </div>
+              <p className="mt-1 text-xs text-muted-foreground">
+                Aucune page cochée = produit proposé sur toutes les pages.
+              </p>
+            </div>
+            <div className="flex items-center justify-between">
+              <Label>Actif</Label>
+              <Switch
+                checked={form.is_active}
+                onCheckedChange={(v) => setForm({ ...form, is_active: v })}
+              />
+            </div>
+            <Button onClick={save} className="w-full">
+              Enregistrer
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      <GalleryDialog product={gallery} onClose={() => setGallery(null)} />
+    </div>
+  );
+}
+
+async function compressProductImage(
+  file: File,
+): Promise<{ data_base64: string; content_type: string; filename: string }> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const img = new Image();
+      img.onload = () => {
+        const canvas = document.createElement("canvas");
+        let { width, height } = img;
+        const maxDim = 1200;
+        if (width > maxDim || height > maxDim) {
+          if (width > height) {
+            height = Math.round((height * maxDim) / width);
+            width = maxDim;
+          } else {
+            width = Math.round((width * maxDim) / height);
+            height = maxDim;
+          }
+        }
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext("2d");
+        if (!ctx) {
+          reject(new Error("Canvas context failed"));
+          return;
+        }
+        ctx.drawImage(img, 0, 0, width, height);
+        let quality = 0.75;
+        let dataUrl = canvas.toDataURL("image/jpeg", quality);
+        while (dataUrl.length * 0.75 > 100 * 1024 && quality > 0.2) {
+          quality -= 0.1;
+          dataUrl = canvas.toDataURL("image/jpeg", quality);
+        }
+        const base64 = dataUrl.split(",")[1] || "";
+        resolve({
+          data_base64: base64,
+          content_type: "image/jpeg",
+          filename: file.name.replace(/\.[^/.]+$/, "") + ".jpg",
+        });
+      };
+      img.onerror = reject;
+      img.src = event.target?.result as string;
+    };
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
+}
+
+function GalleryDialog({ product, onClose }: { product: any; onClose: () => void }) {
+  const qc = useQueryClient();
+  const [uploading, setUploading] = useState(false);
+  const maxImages = 50;
+  const count = product?.product_images?.length ?? 0;
+
+  const uploadFiles = async (files: FileList) => {
+    if (!product) return;
+    if (count + files.length > maxImages) {
+      toast.error(`Maximum ${maxImages} images`);
+      return;
+    }
+    setUploading(true);
+    try {
+      const fileList = Array.from(files);
+      for (let i = 0; i < fileList.length; i++) {
+        const file = fileList[i];
+        const compressed = await compressProductImage(file);
+        await uploadProductImageServer({
+          data: {
+            product_id: product.id,
+            data_base64: compressed.data_base64,
+            content_type: compressed.content_type,
+            filename: compressed.filename,
+            sort_order: count + i,
+          },
+        });
+      }
+      toast.success("Images ajoutées avec succès");
+      qc.invalidateQueries({ queryKey: ["products"] });
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Erreur upload");
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  const removeImg = async (id: string) => {
+    await deleteProductImage({ data: { id } });
+    qc.invalidateQueries({ queryKey: ["products"] });
+  };
+
+  return (
+    <Dialog open={!!product} onOpenChange={(v) => !v && onClose()}>
+      <DialogContent className="max-w-3xl">
+        <DialogHeader>
+          <DialogTitle>
+            Galerie — {product?.name} ({count}/{maxImages})
+          </DialogTitle>
+        </DialogHeader>
+        <div className="space-y-4">
+          <div className="grid grid-cols-3 md:grid-cols-5 gap-2 max-h-96 overflow-y-auto">
+            {(product?.product_images ?? []).map((img: any) => (
+              <div
+                key={img.id}
+                className="relative aspect-square bg-muted rounded overflow-hidden group"
+              >
+                <img
+                  src={img.url || img.image_path}
+                  alt=""
+                  className="w-full h-full object-cover"
+                />
+                <button
+                  className="absolute top-1 right-1 bg-destructive text-destructive-foreground rounded p-1 opacity-0 group-hover:opacity-100 transition"
+                  onClick={() => removeImg(img.id)}
+                >
+                  <X className="h-3 w-3" />
+                </button>
+              </div>
+            ))}
+          </div>
+          <div>
+            <Label>Ajouter des images</Label>
+            <Input
+              type="file"
+              accept="image/*"
+              multiple
+              disabled={uploading}
+              onChange={(e) => {
+                if (e.target.files && e.target.files.length > 0) {
+                  uploadFiles(e.target.files);
+                  e.target.value = "";
+                }
+              }}
+            />
+            {uploading && <p className="text-xs text-primary font-medium mt-1">Upload en cours…</p>}
+            <p className="text-xs text-muted-foreground mt-1">
+              L'IA enverra 4 images à la fois au client, puis 4 autres à sa demande.
+            </p>
+          </div>
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}
