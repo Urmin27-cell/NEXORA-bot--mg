@@ -118,7 +118,7 @@ function SettingsPage() {
     auto_reply_comments: data?.auto_reply_comments ?? true,
     comment_scan_interval_minutes: data?.comment_scan_interval_minutes ?? 5,
     use_lovable_ai_fallback: data?.use_lovable_ai_fallback ?? true,
-    default_model: data?.default_model || "gemini-3.6-flash",
+    default_model: data?.default_model || "gemini-rotation",
     private_message_link: data?.private_message_link ?? "",
     facebook_app_id: data?.facebook_app_id ?? "",
     facebook_app_secret: data?.facebook_app_secret ?? "",
@@ -133,7 +133,7 @@ function SettingsPage() {
         auto_reply_comments: data.auto_reply_comments ?? true,
         comment_scan_interval_minutes: data.comment_scan_interval_minutes ?? 5,
         use_lovable_ai_fallback: data.use_lovable_ai_fallback ?? true,
-        default_model: data.default_model || "gemini-3.6-flash",
+        default_model: data.default_model || "gemini-rotation",
         private_message_link: data.private_message_link ?? "",
         facebook_app_id: data.facebook_app_id ?? "",
         facebook_app_secret: data.facebook_app_secret ?? "",
@@ -368,10 +368,21 @@ function SettingsPage() {
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="gemini-3.6-flash">Gemini 3.6 Flash (recommandé)</SelectItem>
-              <SelectItem value="gemini-flash-latest">Gemini Flash (dernier)</SelectItem>
-              <SelectItem value="gemini-3.5-flash">Gemini 3.5 Flash</SelectItem>
-              <SelectItem value="gemini-pro-latest">Gemini Pro (dernier)</SelectItem>
+              <SelectItem value="gemini-rotation">
+                🔄 Rotation automatique (Tous les modèles Gemini : Flash, Pro, Lite)
+              </SelectItem>
+              <SelectItem value="gemini-3.8-flash">
+                Gemini 3.8 Flash (Recommandé - Ultra rapide & intelligent)
+              </SelectItem>
+              <SelectItem value="gemini-flash-latest">
+                Gemini Flash Latest (Dernière version stable)
+              </SelectItem>
+              <SelectItem value="gemini-3.1-flash-lite">
+                Gemini 3.1 Flash Lite (Ultra rapide & léger)
+              </SelectItem>
+              <SelectItem value="gemini-3.1-pro-preview">
+                Gemini 3.1 Pro (Raisonnement avancé & complexe)
+              </SelectItem>
             </SelectContent>
           </Select>
         </div>

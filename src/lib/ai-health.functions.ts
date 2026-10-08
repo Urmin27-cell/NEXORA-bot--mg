@@ -135,9 +135,13 @@ export const getAiQuotaHealth = createServerFn({ method: "GET" })
     const paused = enabled.length - ready.length;
 
     let geminiStatus: AiQuotaHealth["gemini"]["status"] = "ok";
-    if (all.length === 0) geminiStatus = "none";
-    else if (ready.length === 0) geminiStatus = "exhausted";
-    else if (ready.length <= GEMINI_ACTIVE_THRESHOLD) geminiStatus = "low";
+    if (all.length === 0) {
+      geminiStatus = process.env.GEMINI_API_KEY ? "ok" : "none";
+    } else if (ready.length === 0) {
+      geminiStatus = process.env.GEMINI_API_KEY ? "ok" : "exhausted";
+    } else if (ready.length <= GEMINI_ACTIVE_THRESHOLD) {
+      geminiStatus = process.env.GEMINI_API_KEY ? "ok" : "low";
+    }
 
     // --- 3. Suggestion de clé de secours (la plus fiable disponible) ---
     let backupKeyLabel: string | null = null;

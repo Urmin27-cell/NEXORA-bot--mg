@@ -104,6 +104,43 @@ function ApiKeysPage() {
 
   return (
     <div className="space-y-6">
+      <Card className="p-5 border-primary/20 bg-primary/5">
+        <div className="flex items-start justify-between gap-4">
+          <div className="space-y-1">
+            <div className="flex items-center gap-2">
+              <span className="text-xl">✨</span>
+              <h2 className="text-lg font-semibold text-foreground">
+                Moteur IA Principal : Google Gemini avec Rotation des Modèles
+              </h2>
+              <Badge
+                variant="outline"
+                className="bg-emerald-500/10 text-emerald-600 border-emerald-500/20"
+              >
+                Actif & Opérationnel
+              </Badge>
+            </div>
+            <p className="text-sm text-muted-foreground">
+              Les réponses aux messages et commentaires utilisent la puissance de Google Gemini. À
+              chaque message reçu, le système effectue une rotation intelligente et dynamique entre
+              les modèles disponibles pour une réponse rapide, complète et sans rupture de quota :
+            </p>
+            <div className="flex flex-wrap gap-2 pt-2">
+              <Badge variant="secondary" className="font-mono text-xs">
+                🔄 gemini-3.8-flash (Ultra rapide & intelligent)
+              </Badge>
+              <Badge variant="secondary" className="font-mono text-xs">
+                🔄 gemini-flash-latest (Version stable)
+              </Badge>
+              <Badge variant="secondary" className="font-mono text-xs">
+                🔄 gemini-3.1-flash-lite (Économique & léger)
+              </Badge>
+              <Badge variant="secondary" className="font-mono text-xs">
+                🔄 gemini-3.1-pro-preview (Raisonnement avancé)
+              </Badge>
+            </div>
+          </div>
+        </div>
+      </Card>
       <QuotaMonitorCard />
       <OpenAiKeysCard />
       <div className="flex items-start justify-between gap-4 flex-wrap">

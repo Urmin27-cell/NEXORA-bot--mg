@@ -4,23 +4,25 @@ import {
   SHORT_REPLY_RULE,
   redactSecrets,
 } from "./gemini-quota.server";
-// Server-only AI engine: Lovable AI par défaut + rotation Gemini en fallback.
+import { callGeminiWithRotation, GEMINI_ROTATION_MODELS } from "./gemini.server";
+// Server-only AI engine: Gemini API avec rotation des modèles en Moteur Principal
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
 import fs from "fs";
 import path from "path";
 
-const GEMINI_MODEL = "gemini-3.6-flash";
+const GEMINI_MODEL = "gemini-3.8-flash";
 
 /**
- * Google a retiré gemini-1.5/2.0/2.5 pour les nouvelles clés API (404 "no longer available").
- * On remappe donc tout ancien nom de modèle vers un modèle encore servi.
+ * Normalise le modèle Gemini et prend en charge 'gemini-rotation' ou les anciens alias.
  */
 export function resolveGeminiModel(rawModel?: string | null): string {
   const m = (rawModel || "").trim().toLowerCase();
-  if (!m) return GEMINI_MODEL;
-  if (/gemini-(1\.5|2\.0|2\.5)/.test(m)) {
-    return m.includes("pro") ? "gemini-pro-latest" : GEMINI_MODEL;
+  if (!m || m === "gemini-rotation") return "gemini-rotation";
+  if (/gemini-(1\.5|2\.0|2\.5|3\.5|3\.6)/.test(m)) {
+    return m.includes("pro") ? "gemini-3.1-pro-preview" : "gemini-3.8-flash";
   }
+  if (m === "gemini-pro-latest" || m === "gemini-pro") return "gemini-3.1-pro-preview";
+  if (m === "gemini-lite" || m === "gemini-flash-lite") return "gemini-3.1-flash-lite";
   return m;
 }
 const LOVABLE_MODEL = "google/gemini-3.7-flash";
@@ -162,6 +164,28 @@ async function retryTruncatedReply(opts: {
   const lovableEnabled = settings?.use_lovable_ai_fallback ?? true;
   const modelToUse = resolveGeminiModel(settings?.default_model);
 
+  // 1. Tenter Gemini avec rotation des modèles
+  try {
+    const key = await pickGeminiKey(opts.userId);
+    const effectiveKey = key?.api_key || process.env.GEMINI_API_KEY;
+    if (effectiveKey) {
+      const res = await callGeminiWithRotation({
+        strictSystemPrompt: strictPrompt,
+        history: opts.history ?? [],
+        parts: retryParts,
+        preferredModel: modelToUse === "gemini-rotation" ? null : modelToUse,
+        apiKey: effectiveKey,
+      });
+      if (key?.id) await markKeyUsed(key.id);
+      return { raw: res.text, provider: `${res.provider}:completed` };
+    }
+  } catch (e) {
+    console.warn(
+      "[Gemini rotation retry] fallback vers solutions secondaires:",
+      e instanceof Error ? e.message : e,
+    );
+  }
+
   if (lovableEnabled) {
     try {
       return {
@@ -169,7 +193,10 @@ async function retryTruncatedReply(opts: {
         provider: "lovable-ai:completed",
       };
     } catch (e) {
-      console.warn("[Lovable AI retry] fallback vers Gemini:", e instanceof Error ? e.message : e);
+      console.warn(
+        "[Lovable AI retry] fallback vers clés alternatives:",
+        e instanceof Error ? e.message : e,
+      );
     }
   }
 
@@ -617,7 +644,12 @@ async function callGemini(
 
   const contents = normalizeContentsForGemini(history, parts);
 
-  const standardCandidates = ["gemini-3.6-flash", "gemini-flash-latest", "gemini-3.5-flash"];
+  const standardCandidates = [
+    "gemini-3.8-flash",
+    "gemini-flash-latest",
+    "gemini-3.1-flash-lite",
+    "gemini-3.1-pro-preview",
+  ];
 
   const cleanModelName = resolveGeminiModel(modelName);
 
@@ -1083,6 +1115,74 @@ async function generateAiReplyUnmanaged(opts: {
   const lovableEnabled = settings?.use_lovable_ai_fallback ?? true;
   const modelToUse = resolveGeminiModel(settings?.default_model);
 
+  // 1. MOTEUR IA PRINCIPAL : GOOGLE GEMINI AVEC ROTATION AUTOMATIQUE DES MODÈLES
+  // Utilise l'API Gemini avec rotation intelligente (gemini-3.8-flash, gemini-flash-latest, gemini-3.1-flash-lite, gemini-3.1-pro-preview)
+  try {
+    let activeUserKey: string | undefined = undefined;
+    let activeKeyId: string | undefined = undefined;
+    if (userId) {
+      try {
+        const { data: dbKeys } = await supabaseAdmin
+          .from("gemini_keys")
+          .select("id, api_key, is_active, disabled_until, last_used_at")
+          .eq("user_id", userId)
+          .eq("is_active", true)
+          .order("last_used_at", { ascending: true, nullsFirst: true });
+        const validKey = (dbKeys ?? []).find(
+          (k) => !k.disabled_until || new Date(k.disabled_until).getTime() <= Date.now(),
+        );
+        if (validKey?.api_key) {
+          activeUserKey = validKey.api_key;
+          activeKeyId = validKey.id;
+        }
+      } catch {}
+    }
+
+    const effectiveApiKey = activeUserKey || process.env.GEMINI_API_KEY;
+
+    if (effectiveApiKey) {
+      const geminiRes = await callGeminiWithRotation({
+        strictSystemPrompt,
+        history,
+        parts,
+        maxTokens,
+        preferredModel: modelToUse === "gemini-rotation" ? null : modelToUse,
+        apiKey: effectiveApiKey,
+      });
+
+      if (activeKeyId) {
+        await markKeyUsed(activeKeyId);
+      }
+
+      const sanitized = sanitizeAiResponse(geminiRes.text);
+      const cleaned = sanitizeReply(sanitized, allowLinks);
+      if (looksTruncated(cleaned)) {
+        const completed = await retryTruncatedReply({
+          userId,
+          systemPrompt,
+          history,
+          parts,
+          currentReply: cleaned,
+          allowLinks,
+        });
+        if (completed) {
+          const completedSanitized = sanitizeAiResponse(completed.raw);
+          return {
+            text: sanitizeReply(completedSanitized, allowLinks),
+            provider: completed.provider,
+          };
+        }
+      }
+      return { text: cleaned, provider: geminiRes.provider };
+    }
+  } catch (geminiErr: any) {
+    console.warn(
+      "[Gemini Rotation Pool] Erreur sur le pool Gemini principal, bascule vers les secours:",
+      geminiErr instanceof Error ? geminiErr.message : geminiErr,
+    );
+  }
+
+  // 2. SECOURS 1 : Lovable AI (si activé)
   if (lovableEnabled) {
     try {
       const raw = await callLovableAi(strictSystemPrompt, history, parts, maxTokens);
@@ -1107,7 +1207,7 @@ async function generateAiReplyUnmanaged(opts: {
       }
       return { text: cleaned, provider: "lovable-ai" };
     } catch (e) {
-      console.warn("[Lovable AI] fallback vers Gemini:", e instanceof Error ? e.message : e);
+      console.warn("[Lovable AI fallback]:", e instanceof Error ? e.message : e);
     }
   }
 
@@ -1179,6 +1279,21 @@ async function generateAiReplyUnmanaged(opts: {
     .eq("user_id", userId);
 
   if (!allKeys || allKeys.length === 0) {
+    if (process.env.GEMINI_API_KEY) {
+      const raw = await callGemini(
+        process.env.GEMINI_API_KEY,
+        strictSystemPrompt,
+        history,
+        parts,
+        modelToUse,
+        maxTokens,
+      );
+      const sanitized = sanitizeAiResponse(raw);
+      return {
+        text: sanitizeReply(sanitized, allowLinks),
+        provider: "gemini:server-key",
+      };
+    }
     throw new Error(
       "Aucune clé API Gemini configurée. Veuillez ajouter votre clé API Gemini dans le menu 'Clés Gemini'.",
     );

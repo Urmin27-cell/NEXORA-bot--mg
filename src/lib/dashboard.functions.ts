@@ -256,7 +256,7 @@ const updateSettingsSchema = z.object({
   auto_reply_comments: z.boolean().optional().default(true),
   comment_scan_interval_minutes: z.number().int().min(1).max(60).optional().default(5),
   use_lovable_ai_fallback: z.boolean().optional().default(true),
-  default_model: z.string().min(1).max(80).optional().default("gemini-3.6-flash"),
+  default_model: z.string().min(1).max(80).optional().default("gemini-rotation"),
   private_message_link: z.string().max(500).nullable().optional(),
   facebook_app_id: z.string().max(100).nullable().optional(),
   facebook_app_secret: z.string().max(200).nullable().optional(),
