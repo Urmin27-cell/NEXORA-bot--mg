@@ -183,7 +183,14 @@ function AuthPage() {
       await router.invalidate();
       await navigate({ to: "/dashboard", replace: true });
     } catch (err: any) {
-      toast.error(err?.message || "Erreur lors de la connexion");
+      const msg = err?.message || "";
+      if (msg.toLowerCase().includes("invalid api key")) {
+        toast.error(
+          "Clé API Supabase invalide : vérifiez que vous avez bien copié la clé 'anon public' (et non le mot de passe) dans VITE_SUPABASE_PUBLISHABLE_KEY sur Vercel, puis faites un Redeploy.",
+        );
+      } else {
+        toast.error(msg || "Erreur lors de la connexion");
+      }
     } finally {
       setLoading(false);
     }
