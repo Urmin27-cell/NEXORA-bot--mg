@@ -37,6 +37,7 @@ function cleanEnv(val: string | undefined): string {
   return val
     .trim()
     .replace(/^["'`]|["'`]$/g, "")
+    .replace(/\/+$/, "")
     .trim();
 }
 

@@ -8,7 +8,6 @@ import { Label } from "@/components/ui/label";
 import { Card } from "@/components/ui/card";
 import { Bot, Loader2 } from "lucide-react";
 import { toast } from "sonner";
-import { lovable } from "@/integrations/lovable/index";
 
 export const Route = createFileRoute("/auth")({
   head: () => ({
@@ -130,16 +129,22 @@ function AuthPage() {
   const handleGoogle = async () => {
     setLoading(true);
     try {
-      const result = await lovable.auth.signInWithOAuth("google", {
-        redirect_uri: `${window.location.origin}/auth`,
+      const { error } = await supabase.auth.signInWithOAuth({
+        provider: "google",
+        options: {
+          redirectTo: `${window.location.origin}/auth`,
+        },
       });
-      if (result.error) throw result.error;
-      if (result.redirected) return;
-      toast.success("Connexion Google réussie !");
-      await router.invalidate();
-      await navigate({ to: "/dashboard", replace: true });
+      if (error) throw error;
     } catch (err: any) {
-      toast.error(err?.message || "Erreur lors de la connexion Google");
+      const msg = err?.message || "";
+      if (msg.toLowerCase().includes("not enabled") || msg.toLowerCase().includes("unsupported")) {
+        toast.error(
+          "Connexion Google non activée : activez le fournisseur 'Google' dans votre console Supabase (Authentication > Providers > Google).",
+        );
+      } else {
+        toast.error(msg || "Erreur lors de la connexion Google");
+      }
       setLoading(false);
     }
   };

@@ -6,6 +6,15 @@
 // You can pass additional config via defineConfig({ vite: { ... }, etc... }) if needed.
 import { defineConfig } from "@lovable.dev/vite-tanstack-config";
 
+const clean = (val?: string) =>
+  val
+    ? val
+        .trim()
+        .replace(/^["'`]|["'`]$/g, "")
+        .replace(/\/+$/, "")
+        .trim()
+    : "";
+
 export default defineConfig({
   tanstackStart: {
     // Redirect TanStack Start's bundled server entry to src/server.ts (our SSR error wrapper).
@@ -15,10 +24,10 @@ export default defineConfig({
   vite: {
     define: {
       "import.meta.env.VITE_SUPABASE_URL": JSON.stringify(
-        process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL || "",
+        clean(process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL),
       ),
       "import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY": JSON.stringify(
-        process.env.VITE_SUPABASE_PUBLISHABLE_KEY || process.env.SUPABASE_PUBLISHABLE_KEY || "",
+        clean(process.env.VITE_SUPABASE_PUBLISHABLE_KEY || process.env.SUPABASE_PUBLISHABLE_KEY),
       ),
     },
   },
